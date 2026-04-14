@@ -26,78 +26,159 @@ public class Client {
         socket.close();
     }
 }
- */
+*/
 
-// Lets make for  a client
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.net.*;
 import java.io.*;
+import javax.swing.*;
 
-public class Client{
+public class Client extends JFrame {
     Socket socket;
     BufferedReader br;
-    PrintWriter out ;
-    public Client(){
-        try{
+    PrintWriter out;
+
+    private JLabel heading = new JLabel("Client Area");
+    private JTextArea messagebox = new JTextArea();
+    private JTextField messageInput = new JTextField();
+    private Font font = new Font("Roboto", Font.PLAIN, 20);
+
+    public Client() {
+        try {
             System.out.println("Sending request to the server");
-            socket = new Socket("localhost" ,7777);
+            socket = new Socket("localhost", 7777);
             System.out.println("Connection successfully established");
+
             br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
+
+            createGUI();
+            handleEvents();
             startReading();
-            startWriting();
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        catch(Exception e){
+    }
+
+    private void createGUI() {
+        this.setTitle("TCP/IP Chat Application (Client-Mode)");
+        this.setSize(600, 700);
+        this.setLocationRelativeTo(null);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        heading.setText("Client Terminal");
+
+        // -- UI
+        Color primaryBlue = new Color(33, 150, 243);
+        Color darkBackground = new Color(30, 30, 30);
+        Color textColor = Color.WHITE;
+
+        // 1. Heading Style with Logo
+        heading.setFont(new Font("Roboto", Font.BOLD, 25));
+        heading.setOpaque(true);
+        heading.setBackground(primaryBlue);
+        heading.setForeground(textColor);
+        heading.setHorizontalAlignment(SwingConstants.CENTER);
+        heading.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        try {
+            // This looks for the image relative to your compiled class files
+            URL imgUrl = Client.class.getResource("/ChatLogo.png");
+            if (imgUrl != null) {
+                ImageIcon icon = new ImageIcon(imgUrl);
+                Image img = icon.getImage();
+                Image scaledImg = img.getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+                heading.setIcon(new ImageIcon(scaledImg));
+            } else {
+                System.out.println("Image not found! Check if it's in the 'src' folder.");
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
+        // 2. Message Box Style
+        messagebox.setFont(font);
+        messagebox.setBackground(darkBackground);
+        messagebox.setForeground(textColor);
+        messagebox.setEditable(false);
+        messagebox.setLineWrap(true);
+        messagebox.setWrapStyleWord(true);
+        messagebox.setCaretColor(Color.WHITE);
+
+        // 3. Message Input Style
+        messageInput.setFont(font);
+        messageInput.setBackground(new Color(50, 50, 50));
+        messageInput.setForeground(textColor);
+        messageInput.setCaretColor(Color.WHITE);
+        messageInput.setHorizontalAlignment(SwingConstants.LEFT);
+        messageInput.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(primaryBlue, 2),
+                BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
+
+        // Layout setup
+        JScrollPane scrollPane = new JScrollPane(messagebox);
+        scrollPane.setBorder(null); // Clean look
+
+        this.setLayout(new BorderLayout());
+        this.add(heading, BorderLayout.NORTH);
+        this.add(scrollPane, BorderLayout.CENTER);
+        this.add(messageInput, BorderLayout.SOUTH);
+
+        this.setVisible(true);
     }
-    public void startReading(){
-        Runnable r1 = ()->{
-            System.out.println("Starting to read....");
-            String client_msg;
-            while(true){
-                try{
-                    client_msg = br.readLine();
-                    if(client_msg==null || client_msg.equals("end")){
-                        System.out.println("Server decided to end chat.Closing Client...");
+    private void handleEvents() {
+        messageInput.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {}
+
+            @Override
+            public void keyPressed(KeyEvent e) {}
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == 10) { // Enter Key
+                    String contentToSend = messageInput.getText();
+                    if(!contentToSend.trim().isEmpty()) {
+                        messagebox.append("Me: " + contentToSend + "\n");
+                        out.println(contentToSend);
+                        out.flush();
+                        messageInput.setText("");
+                        messageInput.requestFocus();
+
+                        if(contentToSend.equals("end")) {
+                            System.exit(0);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    public void startReading() {
+        Runnable r1 = () -> {
+            try {
+                while (true) {
+                    String msg = br.readLine();
+                    if (msg == null || msg.equals("end")) {
+                        JOptionPane.showMessageDialog(this, "Server ended the chat.");
                         socket.close();
                         System.exit(0);
                         break;
                     }
-                    System.out.println("Server:" + client_msg);
+                    messagebox.append("Server: " + msg + "\n");
                 }
-                catch(Exception e){
-                    e.printStackTrace();
-                }}
+            } catch (Exception e) {
+                System.out.println("Connection closed.");
+            }
         };
         new Thread(r1).start();
     }
-    public void startWriting(){
-        Runnable w1 = ()->{
-            BufferedReader br2 = new BufferedReader(new InputStreamReader(System.in));
-            while(true){
-                try{
-                    String server_message = br2.readLine();
-                    out.println(server_message);
-                    out.flush();
-                    if(server_message.equals("end")){
-                        socket.close();
-                        System.exit(0);
-                        break;
-                    }
-                }
-                catch(Exception e){
-                    e.printStackTrace();
-                }
-            }
 
-        };
-        new Thread(w1).start();
-    }
-
-    public static void main(String[]args){
-        System.out.println("Client is Ready");
+    public static void main(String[] args) {
         new Client();
-
     }
 }
